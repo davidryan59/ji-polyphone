@@ -9,6 +9,7 @@
     "react": "^16.13.0",
     "react-dom": "^16.13.0",
     "react-scripts": "3.4.0",
+    "recorder-js": "^1.0.7",
     "tone": "^13.8.25"
   },
   "scripts": {
