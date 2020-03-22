@@ -5,7 +5,7 @@ import './App.css';
 import { sequenceSetup, polyphonySequence } from './seq/sequence'
 
 
-// Default constants here
+// Setup constants
 const c = {}
 c.maxGain = 0.2
 c.startDelayS = 0.5
@@ -110,6 +110,8 @@ n.output.connect(Tone.Master)
 n.output.connect(recordingDestination)
 
 
+// Setup synth control functions
+
 const cancelScheduledValues = () => {
   n.oscs.forEach(osc => {
     osc.frequency.cancelScheduledValues()
@@ -152,30 +154,54 @@ const stopNotes = () => {
 }
 
 
-// Setup recording
-let isRecording = false;
+// Setup recording and UI
+
+let isPlaying = false;
 let blobToDownload = null;
 
-const playButton = () => {
-  console.log('Play button pressed')
-  sequenceAndStartNotes()
-  recorder.start().then(() => isRecording = true);
+const buttons = {}
+const buttonLabels = ['togglePlay', 'download']  // Sync with App below
+const checkButtons = () => {
+  if (Object.keys(buttons).length === 0) {
+    console.log('Getting buttons from UI')
+    buttonLabels.forEach( label => buttons[label] = document.getElementById(label) )
+    console.log(buttons)
+  }
 }
 
-const stopButton = () => {
-  console.log('Stop button pressed')
-  stopNotes()
-  recorder.stop().then( ({blob}) => {
-    isRecording = false
-    blobToDownload = blob
-  })
+const togglePlayButton = () => {
+  checkButtons()
+  if (isPlaying) {
+    console.log('Stopping...')
+    stopNotes()
+    recorder.stop().then( ({blob}) => {
+      isPlaying = false
+      buttons.togglePlay.value = 'Play'
+      blobToDownload = blob
+      buttons.download.disabled = false
+    })
+  } else {
+    console.log('Playing...')
+    sequenceAndStartNotes()
+    recorder.start().then(() => {
+      isPlaying = true
+      buttons.togglePlay.value = 'Stop'
+      blobToDownload = null
+      buttons.download.disabled = true
+    });
+  }
 }
 
 const downloadButton = () => {
-  console.log('Download button pressed')
-  Recorder.download(blobToDownload, 'Recording-' + new Date().toISOString()); // downloads a .wav file
+  checkButtons()
+  if (blobToDownload) {
+    console.log('Download button pressed')
+    Recorder.download(blobToDownload, 'Recording-' + new Date().toISOString()); // downloads a .wav file
+  } else {
+    console.log('No blob to download')
+    buttons.download.disabled = true
+  }
 }
-
 
 function App() {
   return (
@@ -183,11 +209,9 @@ function App() {
       <header className="App-header">
         <p>Just Intonation (JI) Polyphony App by David Ryan</p>
         <p>
-          <input type="button" id="play" value="Play" onClick={playButton} />
+          <input type="button" id="togglePlay" value="Play" onClick={togglePlayButton} />
           &nbsp;&nbsp;&nbsp;&nbsp;
-          <input type="button" id="stop" value="Stop" onClick={stopButton}  />
-          &nbsp;&nbsp;&nbsp;&nbsp;
-          <input type="button" id="download" value="Download" onClick={downloadButton}  />
+          <input type="button" id="download" value="Download" onClick={downloadButton} />
         </p>
       </header>
     </div>
