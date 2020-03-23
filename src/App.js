@@ -1,38 +1,96 @@
 import React from 'react';
 import * as Tone from 'tone'
-import logo from './logo.svg';
 import './App.css';
+import { sequenceSetup, polyphonySequence } from './seq/sequence'
 
 // Overall constants
-const maxGain = 0.5
-const startDelayS = 0.5
-const beatTimeS = 0.2
-const defaultSlideBeats = 0.03
-const smallS = 0.001
+const c = {}
+c.maxGain = 0.2
+c.startDelayS = 0.5
+c.beatTimeS = 0.17
+c.defaultSlideBeats = 0.01
+c.baseFreq = 1.0249348  // make all frequencies slightly irrational
+c.deltaTime = 0.00001
+c.deltaGain = 0.000001
+c.justBelow1 = 0.999
+// Override these with any constants from sequence file itself
+Object.assign(c, sequenceSetup)
 
-// Sequenced chords
-// [[timing], [frequencies]]
-// [[timeTotalS, timeSlideS], [baseFreqHz, [relFreq1, relFreq2, relFreq3...]]]
-const polyphonySequence = [
-  [[4   ], [100,     [2,  3,  4,  5,  6]]],
-  [[4   ], [100,     [3,  4,  5,  6,  8]]],
-  [[2   ], [150,     [2,  3,  4,  5,  7]]],
-  [[2   ], [150,     [3,  4,  5,  6,  8]]],
-  [[4, 2], [100*4/3, [2,  3,  4,  7, 10]]],
-  [[4   ], [100,     [2,  4,  5,  6, 16]]],
-]
+
 const numSeqs = polyphonySequence.length
-const numChannels = polyphonySequence[0][1][1].length
+const initFreqs = polyphonySequence[0][1]
+const numChannels = initFreqs[1].length
+const channelGain = c.maxGain / numChannels
+console.log(`numChannels ${numChannels}`)
+console.log(`channelGain ${channelGain}`)
 
-const n = {}  // All Nodes
+// Keep all audio / Tone.js nodes here
+const n = {}
+
+// Construct several oscillator channels
 n.oscs = new Array(numChannels)
 n.gains = new Array(numChannels)
+n.oscGainPost = new Tone.Gain()
 for (let i=0; i<numChannels; i++) {
   n.oscs[i] = new Tone.Oscillator({type: 'triangle', frequency: 440})
-  n.gains[i] = new Tone.Gain({gain: maxGain / numChannels})
-  n.oscs[i].connect(n.gains[i])
-  n.gains[i].toMaster()
+  n.gains[i] = new Tone.Gain({gain: channelGain})
+  n.oscs[i].chain(n.gains[i], n.oscGainPost)
 }
+
+// Make a function to generate random numbers between X/Y and XY, peaking at X
+// where Y = exponent ** ratio
+const randomExpTriDist = (peak, exponent, ratio) => () =>
+  peak * exponent ** ( ratio * (Math.random() + Math.random() - 1) )
+
+const randomDelayArrayGenerator = (len, peak, exponent, ratio) => () => {
+  const arr = new Array(len)
+  const genFn = randomExpTriDist(peak, exponent, ratio)
+  for (let i=0; i<len; i++) arr[i] = genFn()
+  arr.sort()
+  return arr
+}
+
+const delayComponentGenerator = delayTimesFn => {
+  // Construct result in this variable
+  const r = {}
+  r.delayTimes = delayTimesFn()
+  r.numDelays = r.delayTimes.length
+  // Setup and connect shared nodes
+  r.input = new Tone.Gain(1)
+  r.delayGain = new Tone.Gain(-1/r.numDelays)
+  r.output = new Tone.Gain(1)
+  r.input.connect(r.output) // Main line through
+  r.delayGain.connect(r.output) // Delay line
+  // Setup and connect array of delays
+  r.delays = new Array(r.numDelays)
+  for (let i=0; i<r.numDelays; i++) {
+    const delayTime = r.delayTimes[i]
+    const maxDelayTime = delayTime
+    r.delays[i] = new Tone.Delay(delayTime, maxDelayTime)
+    r.input.chain(r.delays[i], r.delayGain)
+  }
+  // Delays in some browsers need (small) constant input otherwise they stop
+  // - even when the sound should be still delaying... here is a workaround
+  r._osc = new Tone.Oscillator({type: 'square', frequency: 420})
+  r._gain = new Tone.Gain(c.deltaGain)
+  r._osc.chain(r._gain, r.input)
+  r._osc.start()
+  // Return finished component
+  return r
+}
+
+// Construct several delay channels
+const delayTimesFn = randomDelayArrayGenerator(2, 0.02, 2, 2)
+n.delayComponentL = delayComponentGenerator(delayTimesFn)
+n.delayComponentR = delayComponentGenerator(delayTimesFn)
+n.panL = new Tone.Panner(-1)
+n.panR = new Tone.Panner(1)
+
+// Connect components
+n.oscGainPost.connect(n.delayComponentL.input)
+n.oscGainPost.connect(n.delayComponentR.input)
+n.delayComponentL.output.chain(n.panL, Tone.Master)
+n.delayComponentR.output.chain(n.panR, Tone.Master)
 
 const cancelScheduledValues = () => {
   n.oscs.forEach(osc => {
@@ -42,21 +100,23 @@ const cancelScheduledValues = () => {
 
 const sequenceAndStartNotes = () => {
   cancelScheduledValues()
-  const timeStartS = Tone.now() + startDelayS
+  const timeStartS = Tone.now() + c.startDelayS
   let timeThisStartS = timeStartS
   for (let i=0; i<numSeqs; i++) {
     const beatLengths = polyphonySequence[i][0]
-    const timeTotalS = beatTimeS * beatLengths[0]
-    const timeSlideS = beatTimeS * ((Number.isFinite(beatLengths[1])) ? beatLengths[1] : defaultSlideBeats)
+    const timeTotalS = c.beatTimeS * beatLengths[0]
+    // if (timeTotalS < c.deltaTime) continue  // Doesn't work - operates on the wrong one - due to rampTo on NEXT....
+    let timeSlideS = c.beatTimeS * ((Number.isFinite(beatLengths[1])) ? beatLengths[1] : c.defaultSlideBeats)
+    timeSlideS = Math.min(timeSlideS, c.justBelow1 * timeTotalS)
     const timeLevelS = timeTotalS - timeSlideS
     for (let j=0; j<numChannels; j++) {
       const freqParam = n.oscs[j].frequency
       const freqsThis = polyphonySequence[i][1]
       const freqsNext = (polyphonySequence[i+1]) ? polyphonySequence[i+1][1] : freqsThis
-      const freqThisHz = freqsThis[0] * freqsThis[1][j]
-      const freqNextHz = freqsNext[0] * freqsNext[1][j]
-      freqParam.setValueAtTime(freqThisHz, timeThisStartS)
-      freqParam.linearRampTo(freqNextHz, timeSlideS, timeThisStartS + timeLevelS - smallS)
+      const freqThisHz = c.baseFreq * freqsThis[0] * freqsThis[1][j]
+      const freqNextHz = c.baseFreq * freqsNext[0] * freqsNext[1][j]
+      if (i === 0) freqParam.setValueAtTime(freqThisHz, timeThisStartS)
+      freqParam.rampTo(freqNextHz, timeSlideS, timeThisStartS + timeLevelS)
     }
     timeThisStartS += timeLevelS + timeSlideS
   }
