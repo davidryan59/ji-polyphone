@@ -37,8 +37,8 @@ const zeroToNArray = n => { const result = []; for (let i = 0; i <= n; i++) resu
 const interpArrayZero = (start = sd, end = ed, n = nd) => zeroToNArray(n).map(k => start + (end - start) * ((k < n) ? 0 : 1))
 const interpArrayLinear = (start = sd, end = ed, n = nd) => zeroToNArray(n).map(k => start + (end - start) * k / n)
 const interpArrayQuad = (start = sd, end = ed, n = nd) => zeroToNArray(n).map(k => start + (end - start) * (k / n) ** 2)
-const interpArrayPow = (type=td) => (start = sd, end = ed, n = nd) => zeroToNArray(n).map(k =>
-  start + (end - start) * (type* (k / n) ** (type-1) - (type-1) * (k / n) ** type)
+const interpArrayPow = (type = td) => (start = sd, end = ed, n = nd) => zeroToNArray(n).map(k =>
+  start + (end - start) * (type * (k / n) ** (type - 1) - (type - 1) * (k / n) ** type)
 )
 const interpFnsArray = [interpArrayZero, interpArrayLinear, interpArrayQuad, interpArrayPow(3), interpArrayPow(2)]
 export const interpArray = (type, start, end, n) => (interpFnsArray[type] || interpArrayPow(type))(start, end, n)

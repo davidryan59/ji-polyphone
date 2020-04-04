@@ -49,46 +49,49 @@ if (synth.output && synth.output.connect && synth.output.connect.call) {
 }
 
 // Setup sequencing
-const numSeqs = sequenceData.length
-const initFreqs = sequenceData[0][1]
-const numChannels = initFreqs[1].length
+const numSeqRows = sequenceData.length
+const initFreqData = sequenceData[0][1]
+const numChannels = initFreqData[1].length
 console.log(`numChannels ${numChannels}`)
 
 const sequenceAndStartNotes = () => {
   synth.cancelScheduledValues()
-  const toneNow = Tone.now()
-  const timeStartS = toneNow + c.initialWaitS
-  let timeThisStartS = timeStartS
-  for (let i = 0; i < numSeqs; i++) {
+  const seqStartTimeS = Tone.now()
+  const timeStartS = seqStartTimeS + c.initialWaitS
+  let timeRowStartS = timeStartS
+  for (let i = 0; i < numSeqRows; i++) {
     const timingData = sequenceData[i][0]
-    const timeTotalS = c.beatLenS * timingData[0]
-    let timeInterpS = c.beatLenS * ((Number.isFinite(timingData[1])) ? timingData[1] : c.defaultSlideBeats)
-    timeInterpS = Math.max(timeTotalS*c.minInterpFraction, Math.min(timeTotalS * (1-c.minInterpFraction), timeInterpS))
+    const timeNoteS = c.beatLenS * timingData[0]
+    let timeNoteInterpS = c.beatLenS * ((Number.isFinite(timingData[1])) ? timingData[1] : c.defaultInterpBeats)
+    timeNoteInterpS = Math.max(timeNoteS * c.minInterpFraction, Math.min(timeNoteS * (1 - c.minInterpFraction), timeNoteInterpS))
     const interpType = Number.isFinite(timingData[2]) ? timingData[2] : c.defaultInterpType
-    const timeLevelS = timeTotalS - timeInterpS
+    const timeNoteLevelS = timeNoteS - timeNoteInterpS
     for (let j = 0; j < numChannels; j++) {
+      // Do sequenced frequency updates
       const freqParamLabel = `freq${j + 1}`
       const freqDataThis = sequenceData[i][1]
       const freqDataNext = (sequenceData[i + 1]) ? sequenceData[i + 1][1] : freqDataThis
       const freqThisHz = c.baseFreqHz * freqDataThis[0] * freqDataThis[1][j]
       const freqNextHz = c.baseFreqHz * freqDataNext[0] * freqDataNext[1][j]
-      if (i === 0) synth.updateParam(freqParamLabel, 'setValueAtTime', [freqThisHz, toneNow])
+      if (i === 0) synth.updateParam(freqParamLabel, 'setValueAtTime', [freqThisHz, seqStartTimeS])
       synth.updateParam(freqParamLabel, 'setValueCurveAtTime',
-        [interpArray(interpType, freqThisHz, freqNextHz, c.interpArrayLength), timeThisStartS + timeLevelS, timeInterpS]
+        [interpArray(interpType, freqThisHz, freqNextHz, c.interpArrayLength), timeRowStartS + timeNoteLevelS, timeNoteInterpS]
       )
+      // Do any other sequenced updates here, e.g. gains, timbres...
     }
-    timeThisStartS += timeLevelS + timeInterpS
+    timeRowStartS += timeNoteS
   }
-  const timeEnd = timeThisStartS
-  synth.start(toneNow)
-  synth.updateParam('masterGain', 'setValueAtTime', [0, toneNow])
+  const timeEnd = timeRowStartS
+  const seqEndTimeS = timeEnd + c.endWaitS
+  synth.start(seqStartTimeS)
+  synth.updateParam('masterGain', 'setValueAtTime', [0, seqStartTimeS])
   synth.updateParam('masterGain', 'setValueCurveAtTime',
-    [interpArray(3, 0, c.maxMasterGain, 24), timeStartS + c.shortDelayS, c.masterGainRampTime]
+    [interpArray(3, 0, c.maxMasterGain, 24), timeStartS + c.shortDelayS, c.masterGainRampTimeS]
   )
   synth.updateParam('masterGain', 'setValueCurveAtTime',
-    [interpArray(3, c.maxMasterGain, 0, 24), timeEnd - c.shortDelayS - c.masterGainRampTime, c.masterGainRampTime]
+    [interpArray(3, c.maxMasterGain, 0, 24), timeEnd - c.shortDelayS - c.masterGainRampTimeS, c.masterGainRampTimeS]
   )
-  synth.stop(timeEnd)
+  synth.stop(seqEndTimeS)
 }
 
 const stopNotes = () => {
