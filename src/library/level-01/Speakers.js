@@ -1,3 +1,5 @@
+/* eslint-disable */
+
 export default {
   level: 1,
   contents: [

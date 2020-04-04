@@ -1,3 +1,5 @@
+/* eslint-disable */
+
 const defaultConstants = {}
 
 // Setup default sequencer constants here

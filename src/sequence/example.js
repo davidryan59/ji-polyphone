@@ -1,3 +1,5 @@
+/* eslint-disable */
+
 // This is a template.
 // Recommend saving your own work as 'sequence.LABEL.js', which is then hidden by .gitignore.
 // Can redirect App to look up that project file.
