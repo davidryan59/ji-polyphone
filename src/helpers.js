@@ -3,8 +3,8 @@ import * as Tone from 'tone'
 export const doNothing = () => {}
 
 export const isObject = val => {
-  if (val === null) { return false;}
-  return ( (typeof val === 'function') || (typeof val === 'object') );
+  if (val === null) { return false }
+  return ((typeof val === 'function') || (typeof val === 'object'))
 }
 
 export const isArray = val => Array.isArray(val)

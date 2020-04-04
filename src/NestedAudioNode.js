@@ -5,61 +5,62 @@ import { doNothing, isObject, isArray, isArrayOrObject, isAudioParam, disp, arra
 
 let id = 0
 class NestedAudioNode {
-  constructor({library, type, init, loc='1', verbose=false}) {
+  constructor ({ library, type, init, loc = '1', verbose = false }) {
     this.id = id++
     this.loc = loc
     this.reset()
     this.verbose = verbose
     this.logger(`${loc}:  ----- START nested node ----- ${type}`)
-    this.initialise({library, type, init, loc})
+    this.initialise({ library, type, init, loc })
     this.logger(`${loc}:  ~~~~~ RESULT nested node ~~~~ ${type}`)
     this.logger(this)
   }
 
-  reset() {
+  reset () {
     this.type = null
     this.level = null
-    this.input = null     // Single point of entry into nested node audio graph, optional
-    this.output = null    // Single point of exit from nested node audio graph, optional
-    this.contents = []    // List of nested nodes. Of type NestedAudioNode or Tone.AudioNode
-    this.connects = []    // Info only, human readable list of successful Tone.js internal connections
-    this.params = {}      // API for Params, e.g. Oscillator.frequency
-    this.consts = {}      // API for constants, e.g. Oscillator.type
-    this.isNested = true   // Marker for being a NestedAudioNode and not a Tone.AudioNode
+    this.input = null // Single point of entry into nested node audio graph, optional
+    this.output = null // Single point of exit from nested node audio graph, optional
+    this.contents = [] // List of nested nodes. Of type NestedAudioNode or Tone.AudioNode
+    this.connects = [] // Info only, human readable list of successful Tone.js internal connections
+    this.params = {} // API for Params, e.g. Oscillator.frequency
+    this.consts = {} // API for constants, e.g. Oscillator.type
+    this.isNested = true // Marker for being a NestedAudioNode and not a Tone.AudioNode
   }
 
-  toString() { return this.type }
+  toString () { return this.type }
 
-  logger(string) { if (this.verbose) console.log(string) }
+  logger (string) { if (this.verbose) console.log(string) }
 
   // For nested nodes call start, stop, dispose across all contents
   // If an inner node fails (esp. for start and stop) it means
   // Tone.js did not support the action which is OK.
-  tryFnAcrossContents(fn, ...args) {
-    this.contents.forEach( node => {
-      try { node[fn](...args) } catch(e) { doNothing() }
+  tryFnAcrossContents (fn, ...args) {
+    this.contents.forEach(node => {
+      try { node[fn](...args) } catch (e) { doNothing() }
     })
   }
-  start(...args) { this.tryFnAcrossContents('start', ...args) }
-  stop(...args) { this.tryFnAcrossContents('stop', ...args) }
-  dispose(...args) { this.tryFnAcrossContents('dispose', ...args); this.reset() }
 
-  cancelScheduledValues() {
+  start (...args) { this.tryFnAcrossContents('start', ...args) }
+  stop (...args) { this.tryFnAcrossContents('stop', ...args) }
+  dispose (...args) { this.tryFnAcrossContents('dispose', ...args); this.reset() }
+
+  cancelScheduledValues () {
     // Only things that should be scheduled are parameters on the API
     // so only need to cancel these, should be able to ignore any inner nodes...
-    Object.keys(this.params).forEach( key => {
+    Object.keys(this.params).forEach(key => {
       const param = this.params[key]
-      try { param.cancelScheduledValues() } catch(e) { doNothing() }
+      try { param.cancelScheduledValues() } catch (e) { doNothing() }
     })
   }
 
-  getApiArray(label) { return [this.params[label], this.consts[label]] }
+  getApiArray (label) { return [this.params[label], this.consts[label]] }
 
-  makeConstObj(node, key, value) { return {node: node, key: key, value: value} }
+  makeConstObj (node, key, value) { return { node: node, key: key, value: value } }
 
-  setConst(apiLabel, constObj) { this.consts[apiLabel] = constObj }
+  setConst (apiLabel, constObj) { this.consts[apiLabel] = constObj }
 
-  setConstValue(apiLabel, value, loc='') {
+  setConstValue (apiLabel, value, loc = '') {
     const item = this.consts[apiLabel]
     if (item) {
       const node = item.node
@@ -68,36 +69,36 @@ class NestedAudioNode {
         try {
           node[key] = value
           item.value = value
-        } catch(e) {
+        } catch (e) {
           this.logger(`${loc}:  ERROR - Tone.js threw error when updating constant ${node}.${key} to ${disp(value)}`)
         }
       }
     }
   }
 
-  getParam(label) { return this.params[label] }
+  getParam (label) { return this.params[label] }
 
-  setParam(label, param) { this.params[label] = param }
+  setParam (label, param) { this.params[label] = param }
 
-  setParamValue(param, value, loc='') {
+  setParamValue (param, value, loc = '') {
     if (isAudioParam(param)) {
       try {
-        param.value = value  // Equivalent to param.setValueAtTime(value, 0)
-      } catch(e) {
+        param.value = value // Equivalent to param.setValueAtTime(value, 0)
+      } catch (e) {
         this.logger(`${loc}:  ERROR - Tone.js threw error when updating Param ${param} to ${disp(value)}`)
       }
     }
   }
 
-  updateParam(label, operation, dataArray=[]) {
+  updateParam (label, operation, dataArray = []) {
     if (isString(label) && isString(operation) && isArray(dataArray)) {
       const param = this.getParam(label)
       if (param) {
         const opFn = param[operation]
         if (opFn && opFn.call) {
           try {
-            param[operation](...dataArray)   // opFn(...dataArray) //doesn't work!
-          } catch(e) {
+            param[operation](...dataArray) // opFn(...dataArray) //doesn't work!
+          } catch (e) {
             this.logger(`${this}:  ERROR - Tone.js threw error when moving param on ${label}, ${operation}, ${dataArray}`)
           }
         } else {
@@ -111,15 +112,15 @@ class NestedAudioNode {
     }
   }
 
-  initialise({library, type, init, loc}) {
+  initialise ({ library, type, init, loc }) {
     // Stage 1:
     // Get a template from library
-    if (!isObject(library)) {this.logger(`${loc}:  ERROR - library not supplied`); return}
-    if (!isString(type)) {this.logger(`${loc}:  ERROR - type is not a string`); return}
+    if (!isObject(library)) { this.logger(`${loc}:  ERROR - library not supplied`); return }
+    if (!isString(type)) { this.logger(`${loc}:  ERROR - type is not a string`); return }
     const template = library[type]
-    if (!isObject(template)) {this.logger(`${loc}:  ERROR - template ${type} not found in library`); return}
+    if (!isObject(template)) { this.logger(`${loc}:  ERROR - template ${type} not found in library`); return }
     const level = template.level
-    if (!Number.isFinite(level) || level <= 0) {this.logger(`${loc}:  ERROR - level for template ${type} is not a positive number`); return}
+    if (!Number.isFinite(level) || level <= 0) { this.logger(`${loc}:  ERROR - level for template ${type} is not a positive number`); return }
     this.type = type
     this.level = level
     this.logger(`${loc}:  Template at level ${level} found for ${type}`)
@@ -127,12 +128,12 @@ class NestedAudioNode {
     // Stage 2:
     // Populate the nested contents
     const contents = template.contents
-    if (!isArray(contents)) {this.logger(`${loc}:  ERROR - template ${type} has no contents`); return}
+    if (!isArray(contents)) { this.logger(`${loc}:  ERROR - template ${type} has no contents`); return }
     this.logger(`${loc}:  Contents of new node are ${disp(contents)}`)
-    contents.forEach( (addItem, idx) => {this.addToContents({library, addItem, idx, loc: `${loc}.${idx+1}`})} )
+    contents.forEach((addItem, idx) => { this.addToContents({ library, addItem, idx, loc: `${loc}.${idx + 1}` }) })
     let err = false
-    this.contents.forEach( node => node ? null : err=true )
-    if (err) {this.logger(`${loc}:  ERROR - at least one nested node of template ${type} did not construct correctly`); return}
+    this.contents.forEach(node => node ? null : err = true)
+    if (err) { this.logger(`${loc}:  ERROR - at least one nested node of template ${type} did not construct correctly`); return }
     this.logger(`${loc}:  ${type} contents created`)
 
     // Stage 3:
@@ -168,7 +169,7 @@ class NestedAudioNode {
     // Make any internal connections
     const connections = template.connect
     if (isArray(connections)) {
-      connections.forEach( (connection, idx) => {
+      connections.forEach((connection, idx) => {
         const tag = `${loc} c.${idx}`
         if (isArray(connection)) {
           // Extract source and destination
@@ -186,7 +187,7 @@ class NestedAudioNode {
               srcItem.connect(destItem)
               this.connects.push(disp(connection))
               this.logger(`${tag}:  Successful connection from ${srcItem} to ${destItem}`)
-            } catch(e) {
+            } catch (e) {
               this.logger(`${loc}:  ERROR - Tone.js could not connect from ${srcItem} to ${destItem}`)
             }
           }
@@ -207,7 +208,7 @@ class NestedAudioNode {
     const templateApiArray = template.api
     if (isArray(templateApiArray)) {
       this.logger(`${loc}:  ${this.type} creating API from ${disp(templateApiArray)}:`)
-      templateApiArray.forEach( (apiItem, idx) => {
+      templateApiArray.forEach((apiItem, idx) => {
         const tag = `${loc} a.${idx}`
         // this.logger(`${tag}:  ...Creating API from ${disp(apiItem)}...`)
         if (isArray(apiItem)) {
@@ -260,11 +261,11 @@ class NestedAudioNode {
     // Stage 6:
     // Final stage is to overwrite initialisation of inner nodes
     // with any initialisation from this node
-    this.initialiseState({init, loc})
+    this.initialiseState({ init, loc })
   }
 
   // Stage 2 of initialisation
-  addToContents({library, addItem, idx, loc}) {
+  addToContents ({ library, addItem, idx, loc }) {
     // Can add:
     // A. Tone.js
     // B. another nested node
@@ -316,7 +317,7 @@ class NestedAudioNode {
           innerNode = isArray(innerInit) ? new theToneConstructor(...innerInit) : new theToneConstructor(innerInit)
           this.contents[idx] = innerNode
           this.logger(`${loc}:  Tone.js instance created for ${innerType}`)
-        } catch(e) {
+        } catch (e) {
           this.logger(`${loc}:  ERROR - Tone.js threw error when creating instance for ${innerType}`)
         }
       } else {
@@ -330,12 +331,11 @@ class NestedAudioNode {
       const innerTemplate = library[innerType]
       if (isObject(innerTemplate)) {
         const innerLevel = innerTemplate.level
-        if (Number.isFinite(innerLevel) && innerLevel<this.level) {
-          innerNode = new this.constructor({library, loc, type:innerType, init:innerInit, verbose: this.verbose})
+        if (Number.isFinite(innerLevel) && innerLevel < this.level) {
+          innerNode = new this.constructor({ library, loc, type: innerType, init: innerInit, verbose: this.verbose })
           if (innerNode) {
             this.contents[idx] = innerNode
             this.logger(`${loc}:  **** SUCCESS nested node **** ${innerType}`)
-            return
           } else {
             this.logger(`${loc}:  ERROR - ${innerType} matched to library, but constructor failed`)
           }
@@ -352,11 +352,11 @@ class NestedAudioNode {
 
   // Stage 4 of initialisation
   // Function to get source and destination nodes/params
-  getConnector(theInfo, theTag, helpLabel, defaultLabel) {
+  getConnector (theInfo, theTag, helpLabel, defaultLabel) {
     let itemToConnect = null
     let connectionError = true
     let connectorResult = [itemToConnect, connectionError]
-    let [theIdx, theLabel] = theInfo
+    const [theIdx, theLabel] = theInfo
     const innerNode = this.contents[theIdx]
     if (!innerNode) {
       this.logger(`${theTag}:  ERROR - ${helpLabel} node ${disp(theInfo)} not found`)
@@ -367,7 +367,7 @@ class NestedAudioNode {
         // use input or output
         itemToConnect = (defaultLabel === 'input') ? innerNode.input
           : (defaultLabel === 'output') ? innerNode.output
-          : null
+            : null
       } else {
         itemToConnect = innerNode.getParam(theLabel)
       }
@@ -395,16 +395,16 @@ class NestedAudioNode {
   }
 
   // Stage 6 of initialisation
-  initialiseState({init, loc}) {
+  initialiseState ({ init, loc }) {
     if (isArray(init)) {
-      if (0 < init.length) {
+      if (init.length > 0) {
         this.logger(`${loc}:  ERROR - cannot initialise ${this.type} on an array ${disp(init)}, require an object instead`)
       } else {
         this.logger(`${loc}:  ${this.type} init on ${disp(init)} requires no action`)
       }
     } else if (isObject(init)) {
       this.logger(`${loc}:  ${this.type} initialisation from parent, using object ${disp(init)}:`)
-      Object.keys(init).forEach( (key, idx) => {
+      Object.keys(init).forEach((key, idx) => {
         const tag = `${loc} i.${idx}`
         const val = init[key]
         const [innerParam, innerConst] = this.getApiArray(key)
