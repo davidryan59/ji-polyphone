@@ -1,3 +1,5 @@
+/* global AudioParam */
+
 import * as Tone from 'tone'
 
 export const doNothing = () => {}

@@ -96,7 +96,7 @@ const buttonLabels = ['togglePlay', 'download'] // These should be buttons in Ap
 const checkButtons = () => {
   if (Object.keys(buttons).length === 0) {
     console.log('Getting buttons from UI')
-    buttonLabels.forEach(label => buttons[label] = document.getElementById(label))
+    buttonLabels.forEach(label => { buttons[label] = document.getElementById(label) })
     console.log(buttons)
   }
 }

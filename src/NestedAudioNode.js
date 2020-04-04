@@ -132,7 +132,7 @@ class NestedAudioNode {
     this.logger(`${loc}:  Contents of new node are ${disp(contents)}`)
     contents.forEach((addItem, idx) => { this.addToContents({ library, addItem, idx, loc: `${loc}.${idx + 1}` }) })
     let err = false
-    this.contents.forEach(node => node ? null : err = true)
+    this.contents.forEach(node => { err = node ? err : true })
     if (err) { this.logger(`${loc}:  ERROR - at least one nested node of template ${type} did not construct correctly`); return }
     this.logger(`${loc}:  ${type} contents created`)
 
@@ -311,10 +311,10 @@ class NestedAudioNode {
       return
     } else if (innerType.slice(0, 5) === 'Tone.') {
       const theToneType = innerType.slice(5)
-      const theToneConstructor = Tone[theToneType]
-      if (theToneConstructor && theToneConstructor.call) {
+      const TheToneConstructor = Tone[theToneType]
+      if (TheToneConstructor && TheToneConstructor.call) {
         try {
-          innerNode = isArray(innerInit) ? new theToneConstructor(...innerInit) : new theToneConstructor(innerInit)
+          innerNode = isArray(innerInit) ? new TheToneConstructor(...innerInit) : new TheToneConstructor(innerInit)
           this.contents[idx] = innerNode
           this.logger(`${loc}:  Tone.js instance created for ${innerType}`)
         } catch (e) {
