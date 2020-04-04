@@ -6,16 +6,15 @@ const defaultConstants = {}
 const c = defaultConstants
 c.synthType = 'Synth4Voices'
 c.synthInit = {}
-c.maxGain = 0.2
-c.maxMasterGain = 0.2
+c.maxMasterGain = 0.95
 c.masterGainRampTime = 0.05
-c.startDelayS = 0.5
-c.beatTimeS = 0.17
+c.initialWaitS = 0.50
+c.beatLenS = 0.15
 c.defaultSlideBeats = 0.01
-c.baseFreq = 261.63
-c.deltaTime = 0.00001
-c.deltaGain = 0.000001
-c.smallDelay = 0.01
-c.justBelow1 = 0.999
+c.baseFreqHz = 261.63
+c.shortDelayS = 0.01
+c.minInterpFraction = 0.001
+c.defaultInterpType = 5
+c.interpArrayLength = 32
 
 export default defaultConstants
