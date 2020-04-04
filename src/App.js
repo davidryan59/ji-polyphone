@@ -1,26 +1,28 @@
 import React from 'react';
 import * as Tone from 'tone'
 import Recorder from 'recorder-js'
+
 import NestedAudioNode from './NestedAudioNode'
 import './App.css';
-import defaultConstants from './sequenced/defaultConstants'
 
-// Specify a library for synth setup from user file
-// import library from './library/index.myCustomLibrary'
 import library from './library'
+import sequence from './sequence'
+import defaultConstants from './sequence/defaultConstants'
 
-// Specify sequence data from user file
-// import { sequenceConstants, sequenceData } from './sequenced/index.myCustomSequenceFile'
-import { sequenceConstants, sequenceData } from './sequenced'
+const sequenceConstants = sequence.constants
+const sequenceData = sequence.data
 
-// ----------------------
-
-console.log('&&&&& LIBRARY &&&&&')
+console.log('------------- LIBRARY -------------')
 console.log(library)
 
 // Make sequence constants easily accessible on a short object name
 const c = {}
 Object.assign(c, defaultConstants, sequenceConstants)
+console.log('------------- CONSTANTS -------------')
+console.log(c)
+
+console.log('------------- SEQUENCE DATA -------------')
+console.log(sequenceData)
 
 // Setup audio context. Using both Web Audio API, and Tone.js, so must have same context.
 // Set Tone.context before Tone is used for anything else.
