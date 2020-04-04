@@ -3,6 +3,7 @@ const defaultConstants = {}
 // Setup default sequencer constants here
 const c = defaultConstants
 c.synthType = 'Synth4Voices'
+c.synthInit = {}
 c.maxGain = 0.2
 c.maxMasterGain = 0.2
 c.masterGainRampTime = 0.05

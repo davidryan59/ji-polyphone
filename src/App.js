@@ -30,8 +30,12 @@ const aCtx = new (window.AudioContext || window.webkitAudioContext)();
 Tone.context = aCtx
 
 // Setup synth
-const type = c.synthType
-const synth = new NestedAudioNode({library, type, verbose: true})
+const synth = new NestedAudioNode({
+  library,
+  type: c.synthType,
+  init: c.synthInit,
+  verbose: true
+})
 
 // Setup recording - note that Tone.js can connect into Web Audio API, but not vice versa.
 const recorder = new Recorder(aCtx);

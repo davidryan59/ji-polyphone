@@ -6,6 +6,7 @@
 // Sequence-specific setup constants
 const c = {}
 c.synthType = 'Synth4Voices'
+c.synthInit = {}
 c.beatTimeS = 0.05
 c.baseFreq = 256
 // Can assign several other properties too, see defaultConstants
