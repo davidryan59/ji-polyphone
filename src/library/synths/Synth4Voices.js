@@ -3,22 +3,24 @@
 export default {
   level: 99,
   contents: [
-    ['FMOsc', {freq: 256, freqMult: 1, gain: 0.25, type: 'triangle', pan: 0, modMult: 2, modType: 'sine', modIndex: 0}],
-    ['FMOsc', {freq: 256, freqMult: 1, gain: 0.25, type: 'triangle', pan: 0, modMult: 2, modType: 'sine', modIndex: 0}],
-    ['FMOsc', {freq: 256, freqMult: 1, gain: 0.25, type: 'triangle', pan: 0, modMult: 2, modType: 'sine', modIndex: 0}],
-    ['FMOsc', {freq: 256, freqMult: 1, gain: 0.25, type: 'triangle', pan: 0, modMult: 2, modType: 'sine', modIndex: 0}],
-    'Speakers'
+    ['FMOsc', {freq: 256, freqMult: 1, gain: 1, type: 'sine', pan: 0, modMult: 1, modType: 'sine', modIndex: 200}],
+    ['FMOsc', {freq: 256, freqMult: 1, gain: 1, type: 'sine', pan: 0, modMult: 1, modType: 'sine', modIndex: 120}],
+    ['FMOsc', {freq: 256, freqMult: 1, gain: 1, type: 'sine', pan: 0, modMult: 1, modType: 'sine', modIndex: 160}],
+    ['CombinedOsc', {noisy: 0.3}],
+    ['Tone.Gain', 0.25],
+    'Speakers',
   ],
   connect: [
     [0, 4],
     [1, 4],
     [2, 4],
     [3, 4],
+    [4, 5],
   ],
   input:  4,  // Allow additional input before the master gain
-  output: 4,  // Allow additional output after the master gain
+  output: 5,  // Allow additional output after the master gain
   api: [
-    ['masterGain', 4, 'gain'],
+    ['masterGain', 5, 'gain'],
 
     ['freq1',     0, 'freq'     ],
     ['freqMult1', 0, 'freqMult' ],
@@ -48,12 +50,7 @@ export default {
     ['modIndex3', 2, 'modIndex' ],
 
     ['freq4',     3, 'freq'     ],
-    ['freqMult4', 3, 'freqMult' ],
     ['gain4',     3, 'gain'     ],
-    ['type4',     3, 'type'     ],
     ['pan4',      3, 'pan'      ],
-    ['modMult4',  3, 'modMult'  ],
-    ['modType4',  3, 'modType'  ],
-    ['modIndex4', 3, 'modIndex' ],
   ],
 }

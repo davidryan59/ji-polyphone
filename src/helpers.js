@@ -1,7 +1,3 @@
-/* global AudioParam */
-
-import * as Tone from 'tone'
-
 export const doNothing = () => {}
 
 export const isObject = val => {
@@ -13,14 +9,16 @@ export const isArray = val => Array.isArray(val)
 
 export const isArrayOrObject = val => isArray(val) || isObject(val)
 
+export const isArrayIndex = val => Number.isInteger(val) || val >= 0
+
 export const disp = val => JSON.stringify(val)
 
 export const arrayIndexPopulated = (array, idx) => isArray(array) && array[idx] != null
 
 export const isAudioParam = item => {
-  // Is this item a schedulable audio parameter?
-  // Main question is whether it is an a-rate or k-rate param
-  return (item instanceof Tone.Param) || (AudioParam && item instanceof AudioParam)
+  // Does this item implement the Web Audio API for a-rate (or k-rate) parameters?
+  return !!(item && item.setValueAtTime && item.setValueAtTime.call)
+  // Use setValueAtTime as the marker for this API...
 }
 
 // Make interpolation arrays available to interpolate smoothly (or non-smoothly) between parameter values

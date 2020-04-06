@@ -1,7 +1,7 @@
 import * as Tone from 'tone'
 import isString from 'is-string'
 
-import { doNothing, isObject, isArray, isArrayOrObject, isAudioParam, disp, arrayIndexPopulated } from './helpers'
+import { doNothing, isObject, isArray, isArrayIndex, isArrayOrObject, isAudioParam, disp, arrayIndexPopulated } from './helpers'
 
 let id = 0
 class NestedAudioNode {
@@ -37,6 +37,7 @@ class NestedAudioNode {
   // Tone.js did not support the action which is OK.
   tryFnAcrossContents (fn, ...args) {
     this.contents.forEach(node => {
+      // console.log(`Doing ${fn} on ${node}`)
       try { node[fn](...args) } catch (e) { doNothing() }
     })
   }
@@ -177,14 +178,15 @@ class NestedAudioNode {
           if (!isArray(srcInfo)) srcInfo = [srcInfo]
           if (!isArray(destInfo)) destInfo = [destInfo]
           this.logger(`${tag}:  Connecting from source ${disp(srcInfo)} to destination ${disp(destInfo)}`)
-          const [srcItem, srcErr] = this.getConnector(srcInfo, tag, 'source', 'output')
-          const [destItem, destErr] = this.getConnector(destInfo, tag, 'destination', 'input')
+          const [srcItem, srcErr, srcIdx] = this.getConnector(srcInfo, tag, 'source', 'output')
+          const [destItem, destErr, destIdx] = this.getConnector(destInfo, tag, 'destination', 'input')
           if (srcErr || destErr) {
             this.logger(`${tag}:  ERROR - either source ${disp(srcInfo)} or destination ${disp(destInfo)} are not valid`)
           } else {
             try {
               // Try to connect using Tone.js
-              srcItem.connect(destItem)
+              srcItem.connect(destItem, srcIdx, destIdx)
+              // srcItem.connect(destItem)
               this.connects.push(disp(connection))
               this.logger(`${tag}:  Successful connection from ${srcItem} to ${destItem}`)
             } catch (e) {
@@ -224,6 +226,8 @@ class NestedAudioNode {
             } else {
               // inner node is Tone.js
               const innerItem = innerNode[innerLabel]
+              console.log(`${loc}:  MAKING API...`)
+              console.log(innerItem)
               if (isAudioParam(innerItem)) {
                 // Its an a-rate (or possibly k-rate) audio parameter
                 innerParam = innerItem
@@ -355,33 +359,42 @@ class NestedAudioNode {
   getConnector (theInfo, theTag, helpLabel, defaultLabel) {
     let itemToConnect = null
     let connectionError = true
-    let connectorResult = [itemToConnect, connectionError]
-    const [theIdx, theLabel] = theInfo
+    let connectIdx = 0
+    let connectorResult = [itemToConnect, connectionError, connectIdx]
+    let paramLabel = ''
+    const [theIdx, theParamLabelOrConnectIndex] = theInfo
+    if (isArrayIndex(theParamLabelOrConnectIndex)) {
+      connectIdx = theParamLabelOrConnectIndex
+    } else if (isString(theParamLabelOrConnectIndex)) {
+      paramLabel = theParamLabelOrConnectIndex
+    } else {
+      // Will connect directly to the audio node
+    }
     const innerNode = this.contents[theIdx]
     if (!innerNode) {
       this.logger(`${theTag}:  ERROR - ${helpLabel} node ${disp(theInfo)} not found`)
       return connectorResult
     }
     if (innerNode.isNested) {
-      if (!theLabel) {
+      if (!paramLabel) {
         // use input or output
         itemToConnect = (defaultLabel === 'input') ? innerNode.input
           : (defaultLabel === 'output') ? innerNode.output
             : null
       } else {
-        itemToConnect = innerNode.getParam(theLabel)
+        itemToConnect = innerNode.getParam(paramLabel)
       }
       if (!itemToConnect) {
-        this.logger(`${theTag}:  ERROR - ${helpLabel} ${innerNode} does not have param ${theLabel}`)
+        this.logger(`${theTag}:  ERROR - ${helpLabel} ${innerNode} does not have param ${paramLabel}`)
         return connectorResult
       }
-      this.logger(`${theTag}:  ${helpLabel} from ${innerNode.type}.${theLabel || defaultLabel} is ${itemToConnect}`)
+      this.logger(`${theTag}:  ${helpLabel} from ${innerNode.type}.${paramLabel || defaultLabel} is ${itemToConnect}`)
     } else {
       // inner node is Tone.js
-      if (theLabel) {
-        itemToConnect = innerNode[theLabel]
+      if (paramLabel) {
+        itemToConnect = innerNode[paramLabel]
         if (!isAudioParam(itemToConnect)) {
-          this.logger(`${theTag}:  ERROR - ${theLabel} inside ${innerNode} is not a schedulable audio parameter`)
+          this.logger(`${theTag}:  ERROR - ${paramLabel} inside ${innerNode} is not a schedulable audio parameter`)
           return connectorResult
         }
       } else {
@@ -390,7 +403,7 @@ class NestedAudioNode {
       this.logger(`${theTag}:  ${helpLabel} from Tone.js node is ${itemToConnect}`)
     }
     connectionError = false
-    connectorResult = [itemToConnect, connectionError]
+    connectorResult = [itemToConnect, connectionError, connectIdx]
     return connectorResult
   }
 

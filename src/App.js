@@ -56,8 +56,8 @@ console.log(`numChannels ${numChannels}`)
 
 const sequenceAndStartNotes = () => {
   synth.cancelScheduledValues()
-  const seqStartTimeS = Tone.now()
-  const timeStartS = seqStartTimeS + c.initialWaitS
+  const timeNowS = Tone.now()
+  const timeStartS = timeNowS + c.initialWaitS
   let timeRowStartS = timeStartS
   for (let i = 0; i < numSeqRows; i++) {
     const timingData = sequenceData[i][0]
@@ -73,7 +73,7 @@ const sequenceAndStartNotes = () => {
       const freqDataNext = (sequenceData[i + 1]) ? sequenceData[i + 1][1] : freqDataThis
       const freqThisHz = c.baseFreqHz * freqDataThis[0] * freqDataThis[1][j]
       const freqNextHz = c.baseFreqHz * freqDataNext[0] * freqDataNext[1][j]
-      if (i === 0) synth.updateParam(freqParamLabel, 'setValueAtTime', [freqThisHz, seqStartTimeS])
+      if (i === 0) synth.updateParam(freqParamLabel, 'setValueAtTime', [freqThisHz, timeNowS])
       synth.updateParam(freqParamLabel, 'setValueCurveAtTime',
         [interpArray(interpType, freqThisHz, freqNextHz, c.interpArrayLength), timeRowStartS + timeNoteLevelS, timeNoteInterpS]
       )
@@ -81,22 +81,24 @@ const sequenceAndStartNotes = () => {
     }
     timeRowStartS += timeNoteS
   }
-  const timeEnd = timeRowStartS
-  const seqEndTimeS = timeEnd + c.endWaitS
-  synth.start(seqStartTimeS)
-  synth.updateParam('masterGain', 'setValueAtTime', [0, seqStartTimeS])
+  const timeEndS = timeRowStartS
+  const seqEndTimeS = timeEndS + c.endWaitS
+  synth.start(timeNowS)
+  synth.updateParam('masterGain', 'setValueAtTime', [0, timeNowS])
   synth.updateParam('masterGain', 'setValueCurveAtTime',
     [interpArray(3, 0, c.maxMasterGain, 24), timeStartS + c.shortDelayS, c.masterGainRampTimeS]
   )
   synth.updateParam('masterGain', 'setValueCurveAtTime',
-    [interpArray(3, c.maxMasterGain, 0, 24), timeEnd - c.shortDelayS - c.masterGainRampTimeS, c.masterGainRampTimeS]
+    [interpArray(3, c.maxMasterGain, 0, 24), timeEndS - c.shortDelayS - c.masterGainRampTimeS, c.masterGainRampTimeS]
   )
   synth.stop(seqEndTimeS)
 }
 
 const stopNotes = () => {
   synth.cancelScheduledValues()
-  synth.stop()
+  const timeNowS = Tone.now()
+  synth.updateParam('masterGain', 'rampTo', [0, c.endRampTimeS, timeNowS + c.endDelayS])
+  synth.stop(timeNowS + c.endDelayS + c.endRampTimeS + c.endStopDelayS)
 }
 
 const buttons = {}
