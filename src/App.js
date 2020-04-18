@@ -57,7 +57,7 @@ console.log(`numChannels ${numChannels}`)
 const sequenceAndStartNotes = () => {
   synth.cancelScheduledValues()
   const timeNowS = Tone.now()
-  const timeStartS = timeNowS + c.initialWaitS
+  const timeStartS = timeNowS + c.startWaitTimeS
   let timeRowStartS = timeStartS
   for (let i = 0; i < numSeqRows; i++) {
     const timingData = sequenceData[i][0]
@@ -82,14 +82,14 @@ const sequenceAndStartNotes = () => {
     timeRowStartS += timeNoteS
   }
   const timeEndS = timeRowStartS
-  const seqEndTimeS = timeEndS + c.endWaitS
+  const seqEndTimeS = timeEndS + c.endWaitTimeS
   synth.start(timeNowS)
-  synth.updateParam('masterGain', 'setValueAtTime', [0, timeNowS])
-  synth.updateParam('masterGain', 'setValueCurveAtTime',
-    [interpArray(3, 0, c.maxMasterGain, 24), timeStartS + c.shortDelayS, c.masterGainRampTimeS]
+  synth.updateParam('speakersGain', 'setValueAtTime', [0, timeNowS])
+  synth.updateParam('speakersGain', 'setValueCurveAtTime',
+    [interpArray(3, 0, c.maxSpeakersGain, 24), timeStartS + c.startOrEndDelayS, c.startOrEndRampTimeS]
   )
-  synth.updateParam('masterGain', 'setValueCurveAtTime',
-    [interpArray(3, c.maxMasterGain, 0, 24), timeEndS - c.shortDelayS - c.masterGainRampTimeS, c.masterGainRampTimeS]
+  synth.updateParam('speakersGain', 'setValueCurveAtTime',
+    [interpArray(3, c.maxSpeakersGain, 0, 24), timeEndS - c.startOrEndDelayS - c.startOrEndRampTimeS, c.startOrEndRampTimeS]
   )
   synth.stop(seqEndTimeS)
 }
@@ -97,8 +97,8 @@ const sequenceAndStartNotes = () => {
 const stopNotes = () => {
   synth.cancelScheduledValues()
   const timeNowS = Tone.now()
-  synth.updateParam('masterGain', 'rampTo', [0, c.endRampTimeS, timeNowS + c.endDelayS])
-  synth.stop(timeNowS + c.endDelayS + c.endRampTimeS + c.endStopDelayS)
+  synth.updateParam('speakersGain', 'rampTo', [0, c.stopRampDownTimeS, timeNowS + c.stopDelay1S])
+  synth.stop(timeNowS + c.stopDelay1S + c.stopRampDownTimeS + c.stopDelay2S)
 }
 
 const buttons = {}
