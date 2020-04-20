@@ -68,11 +68,12 @@ const sequenceAndStartNotes = () => {
     const timeNoteLevelS = timeNoteS - timeNoteInterpS
     for (let j = 0; j < numChannels; j++) {
       // Do sequenced frequency updates
-      const freqParamLabel = `freq${j + 1}`
+      const freqParamLabel = c.synthParams[j]
       const freqDataThis = sequenceData[i][1]
       const freqDataNext = (sequenceData[i + 1]) ? sequenceData[i + 1][1] : freqDataThis
-      const freqThisHz = c.baseFreqHz * freqDataThis[0] * freqDataThis[1][j]
-      const freqNextHz = c.baseFreqHz * freqDataNext[0] * freqDataNext[1][j]
+      const freqThisHz = freqDataThis[0] * freqDataThis[1][j]
+      const freqNextHz = freqDataNext[0] * freqDataNext[1][j]
+      console.log(freqThisHz)
       if (i === 0) synth.updateParam(freqParamLabel, 'setValueAtTime', [freqThisHz, timeNowS])
       synth.updateParam(freqParamLabel, 'setValueCurveAtTime',
         [interpArray(interpType, freqThisHz, freqNextHz, c.interpArrayLength), timeRowStartS + timeNoteLevelS, timeNoteInterpS]

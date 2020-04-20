@@ -8,9 +8,8 @@
 // Sequence-specific setup constants
 const c = {}
 c.synthType = 'Synth4Voices'
-c.synthInit = {}
+c.synthInit = {baseFreq: 256}
 c.beatLenS = 0.05
-c.baseFreq = 256
 // Can assign several other properties too, see defaultConstants
 
 
