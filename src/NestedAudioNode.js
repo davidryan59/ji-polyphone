@@ -84,7 +84,8 @@ class NestedAudioNode {
   setParamValue (param, value, loc = '') {
     if (isAudioParam(param)) {
       try {
-        param.value = value // Equivalent to param.setValueAtTime(value, 0)
+        // Using Tone.now() means later settings override earlier settings
+        param.setValueAtTime(value, Tone.now())
       } catch (e) {
         this.logger(`${loc}:  ERROR - Tone.js threw error when updating Param ${param} to ${disp(value)}`)
       }
