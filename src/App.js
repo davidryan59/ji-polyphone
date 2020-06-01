@@ -1,10 +1,8 @@
 import React from 'react'
-import * as Tone from 'tone'
 import Recorder from 'recorder-js'
-
-import NestedAudioNode from './NestedAudioNode'
+import { NestedAudioNode } from 'nested-audio-node'
+import { SynthControlArray } from 'synth-control'
 import './App.css'
-import { interpArray } from './helpers'
 
 import library from './library'
 import sequence from './sequence'
@@ -28,6 +26,7 @@ console.log(sequenceData)
 // Setup audio context. Using both Web Audio API, and Tone.js, so must have same context.
 // Set Tone.context before Tone is used for anything else.
 const aCtx = new (window.AudioContext || window.webkitAudioContext)()
+const Tone = NestedAudioNode.Tone
 Tone.context = aCtx
 
 // Setup synth
@@ -35,8 +34,9 @@ const synth = new NestedAudioNode({
   library,
   type: c.synthType,
   init: c.synthInit,
-  verbose: true
+  verbose: false // true
 })
+console.log(synth)
 
 // Setup recording - note that Tone.js can connect into Web Audio API, but not vice versa.
 const recorder = new Recorder(aCtx)
@@ -64,7 +64,6 @@ const sequenceAndStartNotes = () => {
     const timeNoteS = c.beatLenS * timingData[0]
     let timeNoteInterpS = c.beatLenS * ((Number.isFinite(timingData[1])) ? timingData[1] : c.defaultInterpBeats)
     timeNoteInterpS = Math.max(timeNoteS * c.minInterpFraction, Math.min(timeNoteS * (1 - c.minInterpFraction), timeNoteInterpS))
-    const interpType = Number.isFinite(timingData[2]) ? timingData[2] : c.defaultInterpType
     const timeNoteLevelS = timeNoteS - timeNoteInterpS
     for (let j = 0; j < numChannels; j++) {
       // Do sequenced frequency updates
@@ -75,9 +74,7 @@ const sequenceAndStartNotes = () => {
       const freqNextHz = freqDataNext[0] * freqDataNext[1][j]
       console.log(freqThisHz)
       if (i === 0) synth.updateParam(freqParamLabel, 'setValueAtTime', [freqThisHz, timeNowS])
-      synth.updateParam(freqParamLabel, 'setValueCurveAtTime',
-        [interpArray(interpType, freqThisHz, freqNextHz, c.interpArrayLength), timeRowStartS + timeNoteLevelS, timeNoteInterpS]
-      )
+      synth.updateParam(freqParamLabel, 'rampTo', [freqNextHz, timeNoteInterpS, timeRowStartS + timeNoteLevelS])
       // Do any other sequenced updates here, e.g. gains, timbres...
     }
     timeRowStartS += timeNoteS
@@ -86,12 +83,8 @@ const sequenceAndStartNotes = () => {
   const seqEndTimeS = timeEndS + c.endWaitTimeS
   synth.start(timeNowS)
   synth.updateParam('speakersGain', 'setValueAtTime', [0, timeNowS])
-  synth.updateParam('speakersGain', 'setValueCurveAtTime',
-    [interpArray(3, 0, c.maxSpeakersGain, 24), timeStartS + c.startOrEndDelayS, c.startOrEndRampTimeS]
-  )
-  synth.updateParam('speakersGain', 'setValueCurveAtTime',
-    [interpArray(3, c.maxSpeakersGain, 0, 24), timeEndS - c.startOrEndDelayS - c.startOrEndRampTimeS, c.startOrEndRampTimeS]
-  )
+  synth.updateParam('speakersGain', 'rampTo', [c.maxSpeakersGain, c.startOrEndRampTimeS, timeStartS + c.startOrEndDelayS])
+  synth.updateParam('speakersGain', 'rampTo', [0, c.startOrEndRampTimeS, timeEndS - c.startOrEndDelayS - c.startOrEndRampTimeS])
   synth.stop(seqEndTimeS)
 }
 
