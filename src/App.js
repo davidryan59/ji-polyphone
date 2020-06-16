@@ -2,26 +2,46 @@ import React from 'react'
 import Recorder from 'recorder-js'
 import { NestedAudioNode } from 'nested-audio-node'
 import { SynthControlArray } from 'synth-control'
+import { Logger } from 'log-count'
+
 import './App.css'
+import defaults from './defaults'
+import control from './control'
 
-import library from './library'
-import sequence from './sequence'
-import defaultConstants from './sequence/defaultConstants'
 
-const sequenceConstants = sequence.constants
-const sequenceData = sequence.data
+// ------ LOGGING OPTIONS ------
+// 0: nothing
+// 1: fatal
+// 2: + errors
+// 3: + warnings
+// 4: + successes and new objects
+// 5: + info
+// 6: + debug
+// 7: + trace
+const setLogLevel = 5  // defaults to 4
+const useShyLogger = false // if shy, logger doesn't use its name in each line
+const hideLogLevel = false
+// --------------------------------
 
-console.log('------------- LIBRARY -------------')
-console.log(library)
 
-// Make sequence constants easily accessible on a short object name
-const c = {}
-Object.assign(c, defaultConstants, sequenceConstants)
-console.log('------------- CONSTANTS -------------')
-console.log(c)
+// General hard-coded options
+const displayDecimalPlaces = 3
+const smallTimeShiftS = 1e-8
+const comparisonAccuracy = 1e-6
 
-console.log('------------- SEQUENCE DATA -------------')
-console.log(sequenceData)
+
+// Numeric display
+const dispNum = dps => n => Number.parseFloat(n).toFixed(dps)
+const dn = dispNum(displayDecimalPlaces)
+
+// Setup logger and say hi
+const logger = new Logger({
+  level: setLogLevel,
+  shy: useShyLogger,
+  hideLevel: hideLogLevel,
+})
+logger.success('')
+logger.success('JI Polyphone app has started')
 
 // Setup audio context. Using both Web Audio API, and Tone.js, so must have same context.
 // Set Tone.context before Tone is used for anything else.
@@ -29,14 +49,36 @@ const aCtx = new (window.AudioContext || window.webkitAudioContext)()
 const Tone = NestedAudioNode.Tone
 Tone.context = aCtx
 
-// Setup synth
+// Defaults object with short name (df)
+const df = {}
+Object.assign(df, defaults, control.defaults)
+
+// Setup synth (i.e. the whole mixing desk, from sources to destination)
 const synth = new NestedAudioNode({
-  library,
-  type: c.synthType,
-  init: c.synthInit,
-  verbose: false // true
+  library: control.nenLibrary,
+  type: df.nenName,
+  init: df.synthInit,
+  logger: logger,
+  tag: 'N'
 })
-console.log(synth)
+
+// Setup synth control
+const sca = new SynthControlArray({
+  library: control.scaLibrary,
+  type: df.scaName,
+  logger: logger,
+  tag: 'S'
+})
+const bpm = df.bpm
+const beats = df.totalBeats
+sca.setBPM(bpm)
+logger.success(`bpm set to ${bpm}`)
+sca.scaleToBeats(beats)
+logger.success(`SCA has been scaled to ${beats} beats`)
+sca.calculateTiming(0)
+logger.success('SCA has had timings calculated')
+const messageMap = sca.mapParamToMessages()
+logger.success('For each SCA param, the array of messages (SCMs) has been found')
 
 // Setup recording - note that Tone.js can connect into Web Audio API, but not vice versa.
 const recorder = new Recorder(aCtx)
@@ -45,63 +87,94 @@ recorder.init(recordingDestination.stream)
 if (synth.output && synth.output.connect && synth.output.connect.call) {
   synth.output.connect(recordingDestination) // Nested nodes / Tone.js node -> Web Audio API
 } else {
-  console.log('ERROR:  Synth output not found, could not connect to recorder.')
+  logger.warn('Synth output not found, could not connect to recorder.')
 }
 
-// Setup sequencing
-const numSeqRows = sequenceData.length
-const initFreqData = sequenceData[0][1]
-const numChannels = initFreqData[1].length
-console.log(`numChannels ${numChannels}`)
+// Log some objects 
+logger.success('')
+logger.success('Audio context:')
+logger.success({obj:aCtx})
+logger.success('Constants and defaults:')
+logger.success({obj:df})
+logger.success('Control object:')
+logger.success({obj:control})
+logger.success('Synth (Nested Audio Node)')
+logger.success({obj:synth})
+logger.success('SCA (Synth Control Array)')
+logger.success({obj:sca})
+logger.success('Recorder')
+logger.success({obj:recorder})
+logger.success('')
+logger.success('Logger frequency counts:')
+logger.success({obj: logger.count})
+logger.success('')
 
 const sequenceAndStartNotes = () => {
   synth.cancelScheduledValues()
-  const timeNowS = Tone.now()
-  const timeStartS = timeNowS + c.startWaitTimeS
-  let timeRowStartS = timeStartS
-  for (let i = 0; i < numSeqRows; i++) {
-    const timingData = sequenceData[i][0]
-    const timeNoteS = c.beatLenS * timingData[0]
-    let timeNoteInterpS = c.beatLenS * ((Number.isFinite(timingData[1])) ? timingData[1] : c.defaultInterpBeats)
-    timeNoteInterpS = Math.max(timeNoteS * c.minInterpFraction, Math.min(timeNoteS * (1 - c.minInterpFraction), timeNoteInterpS))
-    const timeNoteLevelS = timeNoteS - timeNoteInterpS
-    for (let j = 0; j < numChannels; j++) {
-      // Do sequenced frequency updates
-      const freqParamLabel = c.synthParams[j]
-      const freqDataThis = sequenceData[i][1]
-      const freqDataNext = (sequenceData[i + 1]) ? sequenceData[i + 1][1] : freqDataThis
-      const freqThisHz = freqDataThis[0] * freqDataThis[1][j]
-      const freqNextHz = freqDataNext[0] * freqDataNext[1][j]
-      console.log(freqThisHz)
-      if (i === 0) synth.updateParam(freqParamLabel, 'setValueAtTime', [freqThisHz, timeNowS])
-      synth.updateParam(freqParamLabel, 'rampTo', [freqNextHz, timeNoteInterpS, timeRowStartS + timeNoteLevelS])
-      // Do any other sequenced updates here, e.g. gains, timbres...
+  const timeStartS = Tone.now()
+  const timeSeqStartS = timeStartS + df.startWaitTimeS
+  logger.success(`Audio context time now: ${dn(timeStartS)}s`)
+  logger.success(`Updated SCA start time to ${dn(timeSeqStartS)}s, with beat length ${dn(df.beatLenS)}`)
+
+  // Loop over params
+  // Master Gain is controlled below, so ought not to have it in SCA
+  const paramArr = Object.keys(messageMap)
+  for (let i=0; i<paramArr.length; i += 1) {
+    const param = paramArr[i]
+    const scmArray = messageMap[param]
+    const initialValue = scmArray[0].cch.vs
+    let prevValue = initialValue
+    synth.updateParam(param, 'setValueAtTime', [initialValue, timeStartS])
+    logger.debug(`There ${scmArray.length===1?'is 1 message':`are ${scmArray.length} messages`} to process for ${param} on ${synth}:`)
+    logger.info(`Initialised ${param} to ${dn(initialValue)} at ${dn(timeStartS)}s`)
+    for (let j = 0; j < scmArray.length; j += 1) {
+      const scmThis = scmArray[j];
+      const vs = scmThis.cch.vs
+      const ve = scmThis.cch.ve
+      const ts = scmThis.cch.ts + timeSeqStartS
+      const te = scmThis.cch.te + timeSeqStartS
+      if (comparisonAccuracy < Math.abs(vs - prevValue)) {
+        synth.updateParam(param, 'setValueAtTime', [vs, ts])
+        logger.trace(`Set ${param} to ${dn(vs)} at ${dn(ts)}s`)
+      }
+      if (comparisonAccuracy < Math.abs(ve - vs)) {
+        synth.updateParam(param, 'rampTo', [ve, te - ts - 2 * smallTimeShiftS, ts + smallTimeShiftS]) // Small offsets prevent Tone.js glitches
+        logger.trace(`Ramped ${param} from ${dn(vs)} to ${dn(ve)}, between ${dn(ts)}s and ${dn(te)}s`)
+      }
+      prevValue = ve;
     }
-    timeRowStartS += timeNoteS
   }
-  const timeEndS = timeRowStartS
-  const seqEndTimeS = timeEndS + c.endWaitTimeS
-  synth.start(timeNowS)
-  synth.updateParam('speakersGain', 'setValueAtTime', [0, timeNowS])
-  synth.updateParam('speakersGain', 'rampTo', [c.maxSpeakersGain, c.startOrEndRampTimeS, timeStartS + c.startOrEndDelayS])
-  synth.updateParam('speakersGain', 'rampTo', [0, c.startOrEndRampTimeS, timeEndS - c.startOrEndDelayS - c.startOrEndRampTimeS])
-  synth.stop(seqEndTimeS)
+  const timeSeqEndS = sca.cch.te + timeSeqStartS
+  const timeEndS = timeSeqEndS + df.endWaitTimeS
+  synth.start(timeStartS)
+  synth.updateParam(df.paramSpeakersGain, 'setValueAtTime', [0, timeStartS])
+  synth.updateParam(df.paramSpeakersGain, 'rampTo', [df.maxSpeakersGain, df.startOrEndRampTimeS, timeSeqStartS + df.startOrEndDelayS])
+  synth.updateParam(df.paramSpeakersGain, 'rampTo', [0, df.startOrEndRampTimeS, timeSeqEndS - df.startOrEndDelayS - df.startOrEndRampTimeS])
+  synth.stop(timeEndS)
+  const timeAfterCalcsS = Tone.now()
+
+  logger.success('')
+  logger.success(`                     START       END`)
+  logger.success(`Synth times:         ${dn(timeStartS)}s     ${dn(timeEndS)}s`)
+  logger.success(`Sequencing calcs:    ${dn(timeStartS)}s     ${dn(timeAfterCalcsS)}s`)
+  logger.success(`SCA times:           ${dn(timeSeqStartS)}s     ${dn(timeSeqEndS)}s`)
+  logger.success(`Calc time used:      ${dn(timeAfterCalcsS - timeStartS)}s     ${dn(100 * (timeAfterCalcsS - timeStartS)/(timeSeqStartS - timeStartS))}%`)
 }
 
 const stopNotes = () => {
   synth.cancelScheduledValues()
   const timeNowS = Tone.now()
-  synth.updateParam('speakersGain', 'rampTo', [0, c.stopRampDownTimeS, timeNowS + c.stopDelay1S])
-  synth.stop(timeNowS + c.stopDelay1S + c.stopRampDownTimeS + c.stopDelay2S)
+  synth.updateParam(df.paramSpeakersGain, 'rampTo', [0, df.stopRampDownTimeS, timeNowS + df.stopDelay1S])
+  synth.stop(timeNowS + df.stopDelay1S + df.stopRampDownTimeS + df.stopDelay2S)
 }
 
 const buttons = {}
 const buttonLabels = ['togglePlay', 'download'] // These should be buttons in App below
 const checkButtons = () => {
   if (Object.keys(buttons).length === 0) {
-    console.log('Getting buttons from UI')
     buttonLabels.forEach(label => { buttons[label] = document.getElementById(label) })
-    console.log(buttons)
+    logger.success('Got buttons from UI:')
+    logger.success({obj:buttons})
   }
 }
 
@@ -111,7 +184,8 @@ let blobToDownload = null
 const togglePlayButton = () => {
   checkButtons()
   if (isPlaying) {
-    console.log('Stopping...')
+    logger.success('')
+    logger.success('Stopping...')
     stopNotes()
     recorder.stop().then(({ blob }) => {
       isPlaying = false
@@ -120,7 +194,8 @@ const togglePlayButton = () => {
       buttons.download.disabled = false
     })
   } else {
-    console.log('Playing...')
+    logger.success('')
+    logger.success('Playing...')
     sequenceAndStartNotes()
     recorder.start().then(() => {
       isPlaying = true
@@ -134,10 +209,11 @@ const togglePlayButton = () => {
 const downloadButton = () => {
   checkButtons()
   if (blobToDownload) {
-    console.log('Downloading...')
+    logger.success('')
+    logger.success('Downloading...')
     Recorder.download(blobToDownload, 'Recording-' + new Date().toISOString()) // downloads a .wav file
   } else {
-    console.log('ERROR: Could not find audio blob to download')
+    logger.warn('Could not find audio blob to download')
     buttons.download.disabled = true
   }
 }
