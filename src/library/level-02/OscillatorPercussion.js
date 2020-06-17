@@ -1,5 +1,11 @@
 /* eslint-disable */
 
+// Make a Percussion Oscillator using
+// filtered white noise and a sine wave.
+// By rapidly varying the frequency and the
+// proportion of noise, as well as the filtered cutoffs,
+// many percussive sounds can be generated.
+
 export default {
   level: 2,
   contents: [

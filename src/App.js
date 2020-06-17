@@ -18,7 +18,7 @@ import control from './control'
 // 5: + info
 // 6: + debug
 // 7: + trace
-const setLogLevel = 5  // defaults to 4
+const setLogLevel = 4  // defaults to 4
 const useShyLogger = false // if shy, logger doesn't use its name in each line
 const hideLogLevel = false
 // --------------------------------
@@ -90,7 +90,7 @@ if (synth.output && synth.output.connect && synth.output.connect.call) {
   logger.warn('Synth output not found, could not connect to recorder.')
 }
 
-// Log some objects 
+// Log some objects
 logger.success('')
 logger.success('Audio context:')
 logger.success({obj:aCtx})
@@ -104,7 +104,6 @@ logger.success('SCA (Synth Control Array)')
 logger.success({obj:sca})
 logger.success('Recorder')
 logger.success({obj:recorder})
-logger.success('')
 logger.success('Logger frequency counts:')
 logger.success({obj: logger.count})
 logger.success('')
@@ -135,11 +134,11 @@ const sequenceAndStartNotes = () => {
       const te = scmThis.cch.te + timeSeqStartS
       if (comparisonAccuracy < Math.abs(vs - prevValue)) {
         synth.updateParam(param, 'setValueAtTime', [vs, ts])
-        logger.trace(`Set ${param} to ${dn(vs)} at ${dn(ts)}s`)
+        logger.trace({text: `Set ${param} to ${dn(vs)} at ${dn(ts)}s`, type: 'set'})
       }
       if (comparisonAccuracy < Math.abs(ve - vs)) {
         synth.updateParam(param, 'rampTo', [ve, te - ts - 2 * smallTimeShiftS, ts + smallTimeShiftS]) // Small offsets prevent Tone.js glitches
-        logger.trace(`Ramped ${param} from ${dn(vs)} to ${dn(ve)}, between ${dn(ts)}s and ${dn(te)}s`)
+        logger.trace({text: `Ramped ${param} from ${dn(vs)} to ${dn(ve)}, between ${dn(ts)}s and ${dn(te)}s`, type: 'ramp'})
       }
       prevValue = ve;
     }
@@ -159,6 +158,10 @@ const sequenceAndStartNotes = () => {
   logger.success(`Sequencing calcs:    ${dn(timeStartS)}s     ${dn(timeAfterCalcsS)}s`)
   logger.success(`SCA times:           ${dn(timeSeqStartS)}s     ${dn(timeSeqEndS)}s`)
   logger.success(`Calc time used:      ${dn(timeAfterCalcsS - timeStartS)}s     ${dn(100 * (timeAfterCalcsS - timeStartS)/(timeSeqStartS - timeStartS))}%`)
+  logger.success('')
+  logger.success('Logger frequency counts:')
+  logger.success({obj: logger.count})
+  logger.success('')
 }
 
 const stopNotes = () => {
@@ -185,7 +188,7 @@ const togglePlayButton = () => {
   checkButtons()
   if (isPlaying) {
     logger.success('')
-    logger.success('Stopping...')
+    logger.success('Stopping')
     stopNotes()
     recorder.stop().then(({ blob }) => {
       isPlaying = false
@@ -195,7 +198,7 @@ const togglePlayButton = () => {
     })
   } else {
     logger.success('')
-    logger.success('Playing...')
+    logger.success('Playing')
     sequenceAndStartNotes()
     recorder.start().then(() => {
       isPlaying = true
@@ -210,7 +213,7 @@ const downloadButton = () => {
   checkButtons()
   if (blobToDownload) {
     logger.success('')
-    logger.success('Downloading...')
+    logger.success('Downloading')
     Recorder.download(blobToDownload, 'Recording-' + new Date().toISOString()) // downloads a .wav file
   } else {
     logger.warn('Could not find audio blob to download')

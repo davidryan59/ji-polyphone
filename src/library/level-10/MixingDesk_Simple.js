@@ -4,7 +4,7 @@ export default {
   level: 10,
   contents: [
     'Speakers',
-    'PercussionSynth',
+    'SynthPercussion',
   ],
   connect: [
     [1, 0],
@@ -12,7 +12,7 @@ export default {
   input: 0,
   output: 0,
   api: [
-    {replicate: 0, prefix: 'speakers_'},
-    {replicate: 1},
+    {copy: 0, prefix: 'speakers_'},
+    {copy: 1},
   ]
 }
